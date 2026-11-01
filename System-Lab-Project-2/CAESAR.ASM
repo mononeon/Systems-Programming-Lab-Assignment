@@ -3,9 +3,11 @@
 ; TITLE   : 8086 MASM Simulation of Caesar Cipher (Shift = +3)
 ; PURPOSE :
 ;   a. Accept plaintext strings repeatedly in an interactive loop.
-;   b. Encrypt each string using Caesar shift of +3 (letters and digits).
-;   c. Decrypt each encrypted string to retrieve the original plaintext.
-;   d. Terminate cleanly when the user presses ENTER on an empty line.
+;   b. Full backspace support: user can edit/backspace typed characters,
+;      while preventing backspacing past the prompt.
+;   c. Encrypt each string using Caesar shift of +3 (letters and digits).
+;   d. Decrypt each encrypted string to retrieve the original plaintext.
+;   e. Terminate cleanly when the user presses ENTER on an empty line.
 ; TARGET  : Intel 8086 Real Mode, MS-DOS / EMU8086 / DOSBox
 ; =============================================================================
 
@@ -16,21 +18,14 @@
 ; DATA SEGMENT: CONFIGURATION CONSTANTS, BUFFERS AND MESSAGES
 ; =============================================================================
 .data
-    ; Configuration constants: modifying these values updates the entire program
+    ; Configuration constants: changing shift_key updates the entire cipher
     shift_key       equ 3               ; Caesar shift distance
     alpha_mod       equ 26              ; Alphabet modulo length (A-Z, a-z)
     digit_mod       equ 10              ; Decimal digit modulo length (0-9)
     max_len         equ 64              ; Maximum buffer capacity
 
-    ; DOS buffered keyboard input structure (INT 21h, AH=0Ah)
-    ; Byte 0 : maximum capacity (64)
-    ; Byte 1 : count of characters read by DOS
-    ; Byte 2+: string data entered by user
-    input_buf       db max_len
     actual_len      db 0
     plaintext       db max_len dup('$')
-
-    ; Buffers for transformed strings
     encrypted_str   db max_len dup('$')
     decrypted_str   db max_len dup('$')
 
@@ -67,21 +62,17 @@ input_loop:
     lea dx, prompt_msg
     call print_str
 
-    ; Ensure buffer capacity byte is set prior to INT 21h, AH=0Ah
-    mov input_buf, max_len
-    lea dx, input_buf
-    mov ah, 0ah
-    int 21h
+    ; Read user input with full backspace support
+    call read_string
 
     ; Check if user pressed ENTER on an empty line (actual_len == 0)
     mov cl, actual_len
     cmp cl, 0
     je  exit_loop
 
-    ; Terminate current string buffers with '$' for DOS INT 21h, AH=09h display
+    ; Terminate transformed string buffers with '$' for DOS INT 21h, AH=09h
     xor bx, bx
     mov bl, actual_len
-    mov plaintext[bx], '$'
     mov encrypted_str[bx], '$'
     mov decrypted_str[bx], '$'
 
@@ -150,6 +141,82 @@ exit_loop:
     mov ax, 4c00h
     int 21h
 main endp
+
+; =============================================================================
+; SUBROUTINE: read_string
+; Purpose   : Reads a string from console via BIOS INT 16h with real-time echo
+;             and full Backspace editing. Prevents backspacing past the prompt.
+; Outputs   : actual_len = count of characters entered
+;             plaintext  = '$'-terminated ASCII string
+; Preserves : AX, BX, DX, SI
+; =============================================================================
+read_string proc
+    push ax
+    push bx
+    push dx
+    push si
+
+    xor si, si                          ; SI = current character count
+
+read_char_loop:
+    ; Read key without waiting/echo (BIOS INT 16h, AH=00h)
+    mov ah, 00h
+    int 16h                             ; AL = ASCII code
+
+    ; Check for Enter key (ASCII 13 = 0Dh)
+    cmp al, 13
+    je  read_done
+
+    ; Check for Backspace key (ASCII 8 = 08h)
+    cmp al, 8
+    je  handle_backspace
+
+    ; Normal character: ensure buffer limit is not exceeded
+    cmp si, max_len - 1
+    jae read_char_loop                  ; Buffer full: ignore key
+
+    ; Store character in plaintext buffer
+    mov plaintext[si], al
+    inc si
+
+    ; Echo typed character to screen (DOS INT 21h, AH=02h)
+    mov dl, al
+    mov ah, 02h
+    int 21h
+    jmp read_char_loop
+
+handle_backspace:
+    ; Guard: Do not allow backspacing past the beginning of the prompt!
+    cmp si, 0
+    je  read_char_loop
+
+    ; Decrement character count
+    dec si
+
+    ; Visual erase on console: Backspace, Space, Backspace
+    mov ah, 02h
+    mov dl, 8
+    int 21h
+    mov dl, ' '
+    int 21h
+    mov dl, 8
+    int 21h
+    jmp read_char_loop
+
+read_done:
+    ; Record actual length
+    mov ax, si
+    mov actual_len, al
+
+    ; Terminate plaintext with '$'
+    mov plaintext[si], '$'
+
+    pop si
+    pop dx
+    pop bx
+    pop ax
+    ret
+read_string endp
 
 ; =============================================================================
 ; SUBROUTINE: encrypt_char

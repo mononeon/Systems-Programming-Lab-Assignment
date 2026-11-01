@@ -169,14 +169,13 @@ To ensure maintainability, all algorithmic parameters are declared once in the d
 \end{lstlisting}
 Updating \texttt{shift\_key} from 3 to any valid offset automatically adjusts all encryption, decryption, and modular wrap-around routines without altering any loop instruction.
 
-\subsection{Interactive Session Loop}
-Input strings are captured using MS-DOS \texttt{INT 21h}, Function \texttt{0Ah}:
-\begin{lstlisting}[style=asmcode]
-    input_buf   db max_len       ; Maximum buffer capacity
-    actual_len  db 0             ; Count populated by DOS
-    plaintext   db max_len dup('$')
-\end{lstlisting}
-When the user presses Enter on an empty line, DOS sets \texttt{actual\_len = 0}, terminating the interactive loop cleanly via DOS Function \texttt{4Ch}.
+\subsection{Interactive Input and Backspace Handling}
+Console input is managed through a custom \texttt{read\_string} procedure using direct BIOS keyboard service \texttt{INT 16h}, Function \texttt{00h} paired with DOS character echo \texttt{INT 21h}, Function \texttt{02h}. This design resolves common emulator latency issues observed with DOS Function \texttt{0Ah} in EMU8086 and provides explicit control over editing:
+\begin{itemize}
+    \item \textbf{Backspace Editing:} When Backspace (ASCII 8) is pressed, the procedure decrements the character pointer and emits the sequence \texttt{08h}, \texttt{20h}, \texttt{08h} to visually erase the character on screen.
+    \item \textbf{Prompt Boundary Protection:} A boundary guard (\texttt{cmp si, 0}) prevents backspacing when the buffer is empty, ensuring the prompt is never erased.
+    \item \textbf{Session Termination:} Pressing Enter (ASCII 13) on an empty input line terminates the loop and returns control to DOS via Function \texttt{4Ch}.
+\end{itemize}
 
 \section{Low-Level Implementation}
 
