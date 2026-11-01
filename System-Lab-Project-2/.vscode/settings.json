@@ -1,0 +1,8 @@
+{
+  "masmtasm.dosbox.emulator": "jsdos",
+  "masmtasm.assembler": "MASM-v6.11",
+  "masmtasm.dosbox.run": "keep",
+  "files.associations": {
+    "*.ASM": "assembly"
+  }
+}

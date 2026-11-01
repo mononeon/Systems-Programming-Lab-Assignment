@@ -1,0 +1,426 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{cite}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{url}
+\usepackage{fancyhdr}
+
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{codeblue}{RGB}{0,0,130}
+\definecolor{codegreen}{RGB}{0,100,0}
+\definecolor{codegray}{RGB}{100,100,100}
+
+\lstdefinestyle{asmcode}{
+    backgroundcolor=\color{codebg},
+    commentstyle=\color{codegreen}\itshape,
+    keywordstyle=\color{codeblue}\bfseries,
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    captionpos=b,
+    frame=single,
+    rulecolor=\color{black!25},
+    numbers=left,
+    numbersep=6pt,
+    numberstyle=\tiny\color{codegray},
+    tabsize=4,
+    showstringspaces=false,
+    morekeywords={mov,lea,push,pop,add,sub,inc,dec,xor,and,or,not,shr,shl,
+        cmp,jmp,je,jne,ja,jae,jb,jbe,call,ret,int,loop,cld,rep,movsb,div,
+        proc,endp,end,db,dw,dup,equ,offset,
+        ax,bx,cx,dx,ah,al,bh,bl,ch,cl,dh,dl,si,di,sp,bp,ds,es,ss,cs}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Systems Programming Lab Assignment}
+\fancyhead[R]{\small Jadavpur University (Sec A1, Grp 2)}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\begin{document}
+
+% =============================================================================
+% TITLE PAGE
+% =============================================================================
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+
+    {\LARGE\bfseries Jadavpur University\par}
+    \vspace{0.3cm}
+    {\Large Department of Computer Science and Engineering\par}
+    \vspace{0.2cm}
+    {\normalsize 3rd Year, 1st Semester (Section A1, Group 2)\par}
+    \vspace{1.5cm}
+
+    {\large\textbf{Systems Programming Laboratory Assignment}\par}
+    \vspace{0.4cm}
+    \rule{0.85\linewidth}{1.2pt}\\[0.4cm]
+    {\huge\bfseries 8086 MASM Simulation of\\[0.25cm] Alphanumeric Caesar Cipher\par}
+    \rule{0.85\linewidth}{1.2pt}\\[1.5cm]
+
+    {\large\textbf{Submitted By (Group 2):}\par}
+    \vspace{0.4cm}
+    \begin{tabular}{ll}
+        \toprule
+        \textbf{Name} & \textbf{Roll Number} \\
+        \midrule
+        Sayanaditya Das & 002410501008 \\
+        Aditya Dutta    & 002410501010 \\
+        Parijat Dey     & 002410501011 \\
+        Rupam Maiti     & 002410501014 \\
+        Soham Roy       & 002410501016 \\
+        Shreyak Mitra   & 002410501027 \\
+        \bottomrule
+    \end{tabular}
+
+    \vfill
+    {\normalsize\textbf{Architecture:} Intel 8086 Real Mode \quad\textbar\quad \textbf{Assembler:} MASM / DOSBox\par}
+    \vspace{0.2cm}
+    {\normalsize Academic Session: 2026--2027\par}
+    {\normalsize Date: \today\par}
+\end{titlepage}
+
+\newpage
+
+% =============================================================================
+% ABSTRACT & OVERVIEW
+% =============================================================================
+\begin{abstract}
+This laboratory assignment report documents the design, implementation, and testing of a Caesar cipher simulation on the 16-bit Intel 8086 microprocessor using Microsoft Macro Assembler (MASM). The program implements full alphanumeric substitution: alphabetic letters undergo a $+3$ shift modulo 26, while decimal digits undergo a $+3$ shift modulo 10 (such that 8 maps to 1, and 9 maps to 2). Non-alphanumeric characters remain unmodified. The program architecture emphasizes modularity by encapsulating cipher transformations into dedicated subroutines (\texttt{encrypt\_char} and \texttt{decrypt\_char}) and centralizing configuration constants (\texttt{shift\_key}, \texttt{alpha\_mod}, \texttt{digit\_mod}) so that a single modification adjusts the entire system. An interactive loop accepts multiple inputs until terminated by an empty line (pressing Enter).
+\end{abstract}
+
+\vspace{0.4cm}
+
+\section{Assignment Objectives and Problem Statement}
+The objective of this assignment is to design and develop a modular 8086 MASM program simulating the Caesar Cipher. The program fulfills the following requirements:
+\begin{enumerate}
+    \item Accept plaintext strings repeatedly from the user in an interactive session.
+    \item Encrypt each string using a Caesar shift of $+3$ across alphabetic letters and numeric digits.
+    \item Decrypt the ciphertext to recover the original plaintext string.
+    \item Terminate execution cleanly when the user presses Enter on an empty line.
+    \item Maintain high code modularity and centralized configuration constants so that altering the shift key or moduli requires modifying only a single constant definition.
+\end{enumerate}
+
+\section{Mathematical Model}
+Let $\Sigma_U$, $\Sigma_L$, and $\Sigma_D$ denote uppercase letters, lowercase letters, and decimal digits, respectively:
+\begin{align}
+    \Sigma_U &= \{\text{'A'}, \dots, \text{'Z'}\}, \quad \phi_U(x) = \text{ord}(x) - \text{ord}('A') \\
+    \Sigma_L &= \{\text{'a'}, \dots, \text{'z'}\}, \quad \phi_L(x) = \text{ord}(x) - \text{ord}('a') \\
+    \Sigma_D &= \{\text{'0'}, \dots, \text{'9'}\}, \quad \phi_D(x) = \text{ord}(x) - \text{ord}('0')
+\end{align}
+
+\subsection{Transformation Mappings}
+For shift constant $K = 3$, the forward transformation $E_3(x)$ is defined piecewise:
+\begin{equation}
+    E_3(x) =
+    \begin{cases}
+        \phi_U^{-1}\left( (\phi_U(x) + K) \bmod 26 \right), & x \in \Sigma_U \\
+        \phi_L^{-1}\left( (\phi_L(x) + K) \bmod 26 \right), & x \in \Sigma_L \\
+        \phi_D^{-1}\left( (\phi_D(x) + K) \bmod 10 \right), & x \in \Sigma_D \\
+        x, & \text{otherwise}
+    \end{cases}
+\end{equation}
+
+For decimal digits, the modulo 10 property provides the required wrap-around:
+\begin{align*}
+    '7' &\to (7 + 3) \bmod 10 = '0' \\
+    '8' &\to (8 + 3) \bmod 10 = '1' \\
+    '9' &\to (9 + 3) \bmod 10 = '2'
+\end{align*}
+
+The symmetric decryption transformation $D_3(c)$ inverts the shift:
+\begin{equation}
+    D_3(c) =
+    \begin{cases}
+        \phi_U^{-1}\left( (\phi_U(c) - K) \bmod 26 \right), & c \in \Sigma_U \\
+        \phi_L^{-1}\left( (\phi_L(c) - K) \bmod 26 \right), & c \in \Sigma_L \\
+        \phi_D^{-1}\left( (\phi_D(c) - K) \bmod 10 \right), & c \in \Sigma_D \\
+        c, & \text{otherwise}
+    \end{cases}
+\end{equation}
+
+\subsection{Efficient Modular Wrap-Around via Subtraction}
+On the Intel 8086 processor, unsigned integer division (\texttt{DIV}) consumes 80 to 90 clock cycles \cite{intel1979}. Because $K = 3$, values can exceed the modulus boundary by at most 3 positions:
+\begin{itemize}
+    \item Letters: $\phi(x) + 3 \le 28$. Values exceeding 25 are wrapped by subtracting 26.
+    \item Digits: $\phi_D(x) + 3 \le 12$. Values exceeding 9 are wrapped by subtracting 10.
+\end{itemize}
+During decryption, underflows below the lower boundary are corrected by adding 26 or 10. Since addition and subtraction execute in only 3 clock cycles, this substitution provides significant execution efficiency.
+
+\section{System Architecture and Modular Design}
+
+\subsection{Centralized Configuration Constants}
+To ensure maintainability, all algorithmic parameters are declared once in the data segment:
+\begin{lstlisting}[style=asmcode,caption={Centralized configuration constants in CAESAR.ASM}]
+    shift_key       equ 3               ; Caesar shift distance
+    alpha_mod       equ 26              ; Alphabet modulo length
+    digit_mod       equ 10              ; Decimal digit modulo length
+    max_len         equ 64              ; Maximum buffer capacity
+\end{lstlisting}
+Updating \texttt{shift\_key} from 3 to any valid offset automatically adjusts all encryption, decryption, and modular wrap-around routines without altering any loop instruction.
+
+\subsection{Interactive Session Loop}
+Input strings are captured using MS-DOS \texttt{INT 21h}, Function \texttt{0Ah}:
+\begin{lstlisting}[style=asmcode]
+    input_buf   db max_len       ; Maximum buffer capacity
+    actual_len  db 0             ; Count populated by DOS
+    plaintext   db max_len dup('$')
+\end{lstlisting}
+When the user presses Enter on an empty line, DOS sets \texttt{actual\_len = 0}, terminating the interactive loop cleanly via DOS Function \texttt{4Ch}.
+
+\section{Low-Level Implementation}
+
+\subsection{Modular Subroutines: \texttt{encrypt\_char} and \texttt{decrypt\_char}}
+The core cipher logic is encapsulated into independent subroutines that operate on a single character passed in register \texttt{AL}. This design decouples string iteration from transformation rules.
+
+\begin{lstlisting}[style=asmcode,caption={Modular character encryption subroutine}]
+encrypt_char proc
+    ; Check decimal digit: '0' <= AL <= '9'
+    cmp al, '0'
+    jb  enc_alpha
+    cmp al, '9'
+    jbe enc_is_digit
+
+enc_alpha:
+    ; Check uppercase letter: 'A' <= AL <= 'Z'
+    cmp al, 'A'
+    jb  enc_done
+    cmp al, 'Z'
+    jbe enc_is_upper
+
+    ; Check lowercase letter: 'a' <= AL <= 'z'
+    cmp al, 'a'
+    jb  enc_done
+    cmp al, 'z'
+    ja  enc_done
+
+enc_is_lower:
+    add al, shift_key
+    cmp al, 'z'
+    jbe enc_done
+    sub al, alpha_mod
+    ret
+
+enc_is_upper:
+    add al, shift_key
+    cmp al, 'Z'
+    jbe enc_done
+    sub al, alpha_mod
+    ret
+
+enc_is_digit:
+    add al, shift_key
+    cmp al, '9'
+    jbe enc_done
+    sub al, digit_mod
+
+enc_done:
+    ret
+encrypt_char endp
+\end{lstlisting}
+
+Listing 2 displays the symmetric decryption routine, applying inverse operations with centralized constants.
+
+\begin{lstlisting}[style=asmcode,caption={Modular character decryption subroutine}]
+decrypt_char proc
+    cmp al, '0'
+    jb  dec_alpha
+    cmp al, '9'
+    jbe dec_is_digit
+
+dec_alpha:
+    cmp al, 'A'
+    jb  dec_done
+    cmp al, 'Z'
+    jbe dec_is_upper
+
+    cmp al, 'a'
+    jb  dec_done
+    cmp al, 'z'
+    ja  dec_done
+
+dec_is_lower:
+    sub al, shift_key
+    cmp al, 'a'
+    jae dec_done
+    add al, alpha_mod
+    ret
+
+dec_is_upper:
+    sub al, shift_key
+    cmp al, 'A'
+    jae dec_done
+    add al, alpha_mod
+    ret
+
+dec_is_digit:
+    sub al, shift_key
+    cmp al, '0'
+    jae dec_done
+    add al, digit_mod
+
+dec_done:
+    ret
+decrypt_char endp
+\end{lstlisting}
+
+\subsection{Streamlined Buffer Processing Loops}
+With character transformations abstracted into modular subroutines, string processing in \texttt{main} becomes clean and concise:
+\begin{lstlisting}[style=asmcode,caption={Main loop string processing}]
+    ; Encryption loop
+    xor cx, cx
+    mov cl, actual_len
+    xor si, si
+encrypt_loop:
+    mov al, plaintext[si]
+    call encrypt_char
+    mov encrypted_str[si], al
+    inc si
+    loop encrypt_loop
+
+    ; Decryption loop
+    xor cx, cx
+    mov cl, actual_len
+    xor si, si
+decrypt_loop:
+    mov al, encrypted_str[si]
+    call decrypt_char
+    mov decrypted_str[si], al
+    inc si
+    loop decrypt_loop
+\end{lstlisting}
+
+\section{Experimental Evaluation}
+The implementation was executed and tested within the DOSBox 0.74-3 emulator environment.
+
+\subsection{Interactive Multi-Turn Console Session}
+The listing below shows an interactive test session verifying letter shifts, digit wraps, mixed strings, and exit handling:
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize,frame=single,numbers=none]
+=== 8086 Caesar Cipher Simulator (+3 Shift) ===
+Enter string to transform, or press ENTER on empty line to exit.
+
+Enter plaintext string: HELLO
+--- Cipher Results ---
+Original Plaintext  : HELLO
+Encrypted (+3 Shift): KHOOR
+Decrypted Plaintext : HELLO
+
+Enter plaintext string: CS101 Room 89!
+--- Cipher Results ---
+Original Plaintext  : CS101 Room 89!
+Encrypted (+3 Shift): FV434 Urrp 12!
+Decrypted Plaintext : CS101 Room 89!
+
+Enter plaintext string: 789 XYZ xyz
+--- Cipher Results ---
+Original Plaintext  : 789 XYZ xyz
+Encrypted (+3 Shift): 012 ABC abc
+Decrypted Plaintext : 789 XYZ xyz
+
+Enter plaintext string: 
+Empty input detected (ENTER pressed). Program terminated.
+\end{lstlisting}
+
+\subsection{Test Suite and Validation Matrix}
+Table~\ref{tab:testsuite} documents the empirical test vectors verifying all boundary conditions.
+
+\begin{table}[h]
+\centering
+\caption{Empirical Test Results Across Character Classes and Boundary Conditions}
+\label{tab:testsuite}
+\begin{tabularx}{\textwidth}{lll>{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Test Category} & \textbf{Plaintext ($p$)} & \textbf{Ciphertext ($E_3(p)$)} & \textbf{Verified Behavior} \\
+\midrule
+Standard Text & \texttt{HELLO} & \texttt{KHOOR} & Uppercase shift without wrap \\
+Alphabet Wrap & \texttt{XYZxyz} & \texttt{ABCabc} & Upper and lowercase boundary wrap \\
+Digit Wrap & \texttt{789} & \texttt{012} & Modulo 10 wrap ($8 \to 1, 9 \to 2$) \\
+Alphanumeric Mixed & \texttt{CS101 Room 89} & \texttt{FV434 Urrp 12} & Simultaneous letter and digit shifts \\
+Punctuation and Spaces & \texttt{A+B = 9;} & \texttt{D+E = 2;} & Operators and punctuation preserved \\
+Exit Condition & \texttt{(empty)} & \texttt{(none)} & Program terminates cleanly on bare Enter \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Performance and Complexity Analysis}
+
+\subsection{Complexity Characteristics}
+\begin{itemize}
+    \item \textbf{Time Complexity:} For an input of length $N \le 64$, both encryption and decryption require $\Theta(N)$ operations. Each character is processed in bounded $O(1)$ time within \texttt{encrypt\_char} and \texttt{decrypt\_char}.
+    \item \textbf{Space Complexity:} Data segment usage is under 250 bytes with zero dynamic heap allocation, remaining well within the 64~KB segment.
+\end{itemize}
+
+\subsection{Instruction Cycle Timing Comparison}
+Table~\ref{tab:cycles} compares instruction cycle requirements between subtraction-based modulo reduction and hardware division.
+
+\begin{table}[h]
+\centering
+\caption{Instruction Cycle Requirements for 8086 Modular Reduction}
+\label{tab:cycles}
+\begin{tabular}{llr}
+\toprule
+\textbf{Method} & \textbf{Instructions Executed} & \textbf{Clock Cycles} \\
+\midrule
+Subtraction-Based & \texttt{ADD AL, shift\_key} & 3 \\
+(Implemented)     & \texttt{CMP AL, '9'} & 3 \\
+                  & \texttt{JBE enc\_done} (no wrap) & 4 \\
+                  & \texttt{SUB AL, digit\_mod} (wrap taken) & 3 \\
+                  \cmidrule{2-3}
+                  & \textbf{Worst-Case Total} & \textbf{13 cycles} \\
+\midrule
+Division-Based    & \texttt{SUB AL, '0'} & 3 \\
+(Alternative)     & \texttt{ADD AL, 3} & 3 \\
+                  & \texttt{MOV CL, 10} / \texttt{CBW} & 4 \\
+                  & \texttt{DIV CL} & 80--90 \\
+                  & \texttt{ADD AH, '0'} & 3 \\
+                  \cmidrule{2-3}
+                  & \textbf{Average Total} & \textbf{93--103 cycles} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The subtraction approach yields an approximate $7\times$ speedup over the division instruction, demonstrating effective assembly-level optimization.
+
+\section{Conclusion}
+This assignment report documented the simulation of an alphanumeric Caesar cipher on the Intel 8086 microprocessor. Character transformations are abstracted into modular subroutines \texttt{encrypt\_char} and \texttt{decrypt\_char}. Centralized configuration constants allow adjusting the shift distance from a single definition. The program processes uppercase letters, lowercase letters, and digits (wrapping 8 to 1, and 9 to 2) while preserving symbols. An interactive console loop supports continuous testing and terminates cleanly upon pressing Enter.
+
+\begin{thebibliography}{9}
+
+\bibitem{intel1979}
+Intel Corporation,
+\emph{The 8086 Family User's Manual},
+Santa Clara, CA: Intel Corporation, Oct. 1979.
+
+\bibitem{hall2005}
+D.~V. Hall,
+\emph{Microprocessors and Interfacing: Programming and Hardware},
+3rd~ed., New Delhi, India: Tata McGraw-Hill, 2005.
+
+\bibitem{stallings2017}
+W.~Stallings,
+\emph{Cryptography and Network Security: Principles and Practice},
+7th~ed., Boston, MA: Pearson, 2017.
+
+\bibitem{abel2001}
+P.~Abel,
+\emph{IBM PC Assembly Language and Programming},
+5th~ed., Upper Saddle River, NJ: Prentice Hall, 2001.
+
+\bibitem{ray2012}
+A.~K. Ray and K.~M. Bhurchandi,
+\emph{Advanced Microprocessors and Peripherals: Architecture, Programming and Interfacing},
+3rd~ed., New Delhi, India: McGraw-Hill Education, 2012.
+
+\end{thebibliography}
+
+\end{document}

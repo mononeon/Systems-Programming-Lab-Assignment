@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>8086 MASM System Lab Report: Caesar Cipher Simulator (+3 Shift)</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --accent: #0f766e;
+      --accent-soft: #ccfbf1;
+      --navy: #1e293b;
+      --border: #cbd5e1;
+      --code-bg: #0f172a;
+      --code-ink: #e2e8f0;
+      --amber: #d97706;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.65;
+      margin: 0;
+      padding: 32px 20px;
+    }
+    .container {
+      max-width: 1020px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 48px 56px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+    .header-banner {
+      border-bottom: 3px solid var(--accent);
+      padding-bottom: 24px;
+      margin-bottom: 32px;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 2.1rem;
+      line-height: 1.25;
+      margin: 0 0 12px 0;
+      color: var(--navy);
+    }
+    h2 {
+      font-size: 1.45rem;
+      color: var(--navy);
+      border-left: 4px solid var(--accent);
+      padding-left: 12px;
+      margin-top: 40px;
+      margin-bottom: 16px;
+    }
+    h3 {
+      font-size: 1.15rem;
+      color: #1e3a8a;
+      margin-top: 28px;
+      margin-bottom: 10px;
+    }
+    p { margin: 0 0 16px 0; }
+    a { color: var(--accent); text-decoration: none; font-weight: 500; }
+    a:hover { text-decoration: underline; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0 28px 0;
+      font-size: 0.92rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background: var(--navy);
+      color: #ffffff;
+      font-weight: 600;
+    }
+    tr:nth-child(even) td { background: #f1f5f9; }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-ink);
+      padding: 20px 24px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+      font-size: 0.86rem;
+      line-height: 1.55;
+      margin: 20px 0;
+    }
+    code {
+      font-family: "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+      background: #e2e8f0;
+      color: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.88em;
+    }
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+    .diagram-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin: 24px 0;
+      text-align: center;
+    }
+    .diagram-caption {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 12px;
+      font-style: italic;
+    }
+    .formula-box {
+      background: #f0fdf4;
+      border-left: 4px solid var(--accent);
+      padding: 16px 20px;
+      margin: 18px 0;
+      font-family: "Georgia", serif;
+      font-size: 1.05rem;
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-banner">
+      <span class="badge">System Programming &amp; Microprocessor Laboratory (8086 MASM)</span>
+      <h1>Design and Implementation of a Classical Caesar Cipher Simulator (+3 Shift) in Intel 8086 MASM Architecture</h1>
+      <p style="color: var(--muted); margin-bottom: 0;">
+        <strong>Source File:</strong> <code>CAESAR.ASM</code> &nbsp;|&nbsp;
+        <strong>Target Architecture:</strong> Intel 8086 (16-Bit Real Mode, <code>.MODEL SMALL</code>) &nbsp;|&nbsp;
+        <strong>Interrupt Interface:</strong> MS-DOS <code>INT 21h</code>
+      </p>
+    </div>
+
+    <h2>1. Executive Summary &amp; System Specification</h2>
+    <p>
+      This report presents the architectural design, modular arithmetic formulation, and 16-bit assembly language implementation of the classical <a href="https://en.wikipedia.org/wiki/Caesar_cipher">Caesar Cipher</a> developed for the <a href="https://en.wikipedia.org/wiki/Intel_8086">Intel 8086</a> microprocessor using the <a href="https://en.wikipedia.org/wiki/Microsoft_Macro_Assembler">Microsoft Macro Assembler (MASM)</a>. The program fulfills three core laboratory objectives:
+    </p>
+    <ul>
+      <li><strong>a. Buffered User Plaintext Input:</strong> Reads an arbitrary plaintext string from the keyboard via <a href="https://yassinebridi.github.io/asm-docs/8086_bios_and_dos_interrupts.html">MS-DOS Interrupt 21h, Function 0Ah</a> (with automatic fallback to <code>"HELLO"</code> if empty input is entered).</li>
+      <li><strong>b. Forward Encryption (+3 Shift):</strong> Shifts every alphabetic character by $K = +3$ positions down the alphabet ($E(x) = (x + 3) \bmod 26$), handling circular wrap-around past <code>'Z'</code> (<code>5Ah</code>) and <code>'z'</code> (<code>7Ah</code>) while preserving non-alphabetic symbols and spaces.</li>
+      <li><strong>c. Reverse Decryption (-3 Shift):</strong> Applies the inverse transformation ($D(x) = (x - 3) \bmod 26$) on the ciphertext buffer to deterministically reconstruct the original plaintext string, displaying a real-time cycle-by-cycle hexadecimal and character trace on the console.</li>
+    </ul>
+
+    <table>
+      <thead>
+        <tr>
+          <th>System Parameter</th>
+          <th>Technical Specification</th>
+          <th>Architectural Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Processor &amp; Mode</strong></td>
+          <td><a href="https://en.wikipedia.org/wiki/Intel_8086">Intel 8086</a> / 8088 (16-Bit Real Mode)</td>
+          <td>Executes 8-bit ALU register shifts (<code>AL</code>), indexed memory addressing (<code>SI</code>, <code>BX</code>), and hardware loops (<code>CX</code>).</td>
+        </tr>
+        <tr>
+          <td><strong>Assembler Toolchain</strong></td>
+          <td><a href="https://en.wikipedia.org/wiki/Microsoft_Macro_Assembler">MASM</a> / TASM / EMU8086</td>
+          <td>Assembles <code>.MODEL SMALL</code> segments with a <code>100h</code> (256-byte) stack frame.</td>
+        </tr>
+        <tr>
+          <td><strong>Cryptographic Key</strong></td>
+          <td>Fixed Symmetric Shift $K = +3$</td>
+          <td>Transforms <code>HELLO</code> $\rightarrow$ <code>KHOOR</code> (Encryption) and <code>KHOOR</code> $\rightarrow$ <code>HELLO</code> (Decryption).</td>
+        </tr>
+        <tr>
+          <td><strong>Encoding Standard</strong></td>
+          <td>7-Bit / 8-Bit <a href="https://en.wikipedia.org/wiki/ASCII">ASCII</a></td>
+          <td>Maps uppercase <code>'A'–'Z'</code> (<code>41h–5Ah</code>) and lowercase <code>'a'–'z'</code> (<code>61h–7Ah</code>).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Mathematical Formulation &amp; ASCII Boundary Arithmetic</h2>
+    <p>
+      In classical cryptography, the 26 letters of the Latin alphabet are mapped onto the ring of integers modulo 26, $\mathbb{Z}_{26} = \{0, 1, \dots, 25\}$ (<a href="https://eitca.org/cybersecurity/eitc-is-ccf-classical-cryptography-fundamentals/history-of-cryptography/modular-arithmetic-and-historical-ciphers/examination-review-modular-arithmetic-and-historical-ciphers/how-does-the-caesar-cipher-utilize-the-concept-of-modular-arithmetic-to-encrypt-and-decrypt-messages/">EITCA Modular Arithmetic Reference</a>). For a plaintext ordinal $P \in \mathbb{Z}_{26}$ and shift key $K = 3$:
+    </p>
+    <div class="formula-box">
+      <strong>Encryption Function:</strong> &nbsp; $C = E_3(P) = (P + 3) \bmod 26$<br/>
+      <strong>Decryption Function:</strong> &nbsp; $P = D_3(C) = (C - 3) \bmod 26 \equiv (C + 23) \bmod 26$
+    </div>
+    <p>
+      On the 8086 microprocessor, using the hardware <code>DIV</code> instruction to compute modulo 26 requires 80–90 clock cycles per byte. Instead, <code>CAESAR.ASM</code> implements modular wrap-around directly in the <a href="https://en.wikipedia.org/wiki/ASCII">ASCII</a> domain using fast 3-cycle <code>ADD</code>/<code>SUB</code> instructions and unsigned boundary comparisons:
+    </p>
+    <ul>
+      <li><strong>Uppercase Encryption (<code>41h</code> to <code>5Ah</code>):</strong> Compute <code>AL = AL + 3</code>. If <code>AL &gt; 5Ah</code> (<code>'Z'</code>), subtract <code>1Ah</code> ($26_{10}$) to wrap around to <code>'A'–'C'</code>.</li>
+      <li><strong>Lowercase Encryption (<code>61h</code> to <code>7Ah</code>):</strong> Compute <code>AL = AL + 3</code>. If <code>AL &gt; 7Ah</code> (<code>'z'</code>), subtract <code>1Ah</code> ($26_{10}$) to wrap around to <code>'a'–'c'</code>.</li>
+      <li><strong>Uppercase Decryption (<code>41h</code> to <code>5Ah</code>):</strong> Compute <code>AL = AL - 3</code>. If <code>AL &lt; 41h</code> (<code>'A'</code>), add <code>1Ah</code> ($26_{10}$) to wrap around to <code>'X'–'Z'</code>.</li>
+      <li><strong>Lowercase Decryption (<code>61h</code> to <code>7Ah</code>):</strong> Compute <code>AL = AL - 3</code>. If <code>AL &lt; 61h</code> (<code>'a'</code>), add <code>1Ah</code> ($26_{10}$) to wrap around to <code>'x'–'z'</code>.</li>
+    </ul>
+
+    <div class="diagram-box">
+      <svg viewBox="0 0 880 280" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+        <rect width="880" height="280" rx="8" fill="#0f172a"/>
+        <text x="440" y="32" fill="#38bdf8" font-family="monospace" font-size="16" font-weight="bold" text-anchor="middle">
+          8086 ALU PIPELINE &amp; CIRCULAR ALPHABET WRAP-AROUND (K = +3 / -3)
+        </text>
+        <!-- Box 1: Input Buffer -->
+        <rect x="30" y="60" width="230" height="190" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5"/>
+        <text x="145" y="85" fill="#f8fafc" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle">1. DOS INT 21h (AH=0Ah)</text>
+        <rect x="50" y="102" width="190" height="32" rx="4" fill="#0f172a" stroke="#64748b"/>
+        <text x="145" y="123" fill="#fde047" font-family="monospace" font-size="12" text-anchor="middle">[Max:64 | Len:5 | HELLO]</text>
+        <text x="145" y="155" fill="#94a3b8" font-family="monospace" font-size="12" text-anchor="middle">DS:PLAINTEXT[SI]</text>
+        <text x="145" y="180" fill="#2dd4bf" font-family="monospace" font-size="13" text-anchor="middle">'H' 'E' 'L' 'L' 'O'</text>
+        <text x="145" y="202" fill="#cbd5e1" font-family="monospace" font-size="12" text-anchor="middle">48h 45h 4Ch 4Ch 4Fh</text>
+        <text x="145" y="232" fill="#94a3b8" font-family="sans-serif" font-size="11" text-anchor="middle">Indexed by SI (0..4), CX=5</text>
+
+        <!-- Arrow 1 -->
+        <line x1="260" y1="155" x2="315" y2="155" stroke="#38bdf8" stroke-width="2.5"/>
+        <polygon points="315,149 327,155 315,161" fill="#38bdf8"/>
+
+        <!-- Box 2: Encryption -->
+        <rect x="328" y="60" width="230" height="190" rx="6" fill="#1e293b" stroke="#2dd4bf" stroke-width="1.5"/>
+        <text x="443" y="85" fill="#f8fafc" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle">2. ENCRYPT_LOOP (+3)</text>
+        <rect x="348" y="102" width="190" height="32" rx="4" fill="#0f172a" stroke="#2dd4bf"/>
+        <text x="443" y="123" fill="#2dd4bf" font-family="monospace" font-size="12" text-anchor="middle">ADD AL, 3 (Wrap: SUB 26)</text>
+        <text x="443" y="155" fill="#94a3b8" font-family="monospace" font-size="12" text-anchor="middle">DS:ENCRYPTED_STR[SI]</text>
+        <text x="443" y="180" fill="#fbbf24" font-family="monospace" font-size="13" text-anchor="middle">'K' 'H' 'O' 'O' 'R'</text>
+        <text x="443" y="202" fill="#cbd5e1" font-family="monospace" font-size="12" text-anchor="middle">4Bh 48h 4Fh 4Fh 52h</text>
+        <text x="443" y="232" fill="#94a3b8" font-family="sans-serif" font-size="11" text-anchor="middle">If AL &gt; 'Z' (5Ah): SUB AL, 1Ah</text>
+
+        <!-- Arrow 2 -->
+        <line x1="558" y1="155" x2="613" y2="155" stroke="#2dd4bf" stroke-width="2.5"/>
+        <polygon points="613,149 625,155 613,161" fill="#2dd4bf"/>
+
+        <!-- Box 3: Decryption -->
+        <rect x="626" y="60" width="224" height="190" rx="6" fill="#1e293b" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="738" y="85" fill="#f8fafc" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle">3. DECRYPT_LOOP (-3)</text>
+        <rect x="646" y="102" width="184" height="32" rx="4" fill="#0f172a" stroke="#fbbf24"/>
+        <text x="738" y="123" fill="#fbbf24" font-family="monospace" font-size="12" text-anchor="middle">SUB AL, 3 (Wrap: ADD 26)</text>
+        <text x="738" y="155" fill="#94a3b8" font-family="monospace" font-size="12" text-anchor="middle">DS:DECRYPTED_STR[SI]</text>
+        <text x="738" y="180" fill="#4ade80" font-family="monospace" font-size="13" text-anchor="middle">'H' 'E' 'L' 'L' 'O'</text>
+        <text x="738" y="202" fill="#cbd5e1" font-family="monospace" font-size="12" text-anchor="middle">48h 45h 4Ch 4Ch 4Fh</text>
+        <text x="738" y="232" fill="#94a3b8" font-family="sans-serif" font-size="11" text-anchor="middle">If AL &lt; 'A' (41h): ADD AL, 1Ah</text>
+      </svg>
+      <div class="diagram-caption">Figure 1: Three-stage 8086 register and memory buffer pipeline implemented in <code>CAESAR.ASM</code>.</div>
+    </div>
+
+    <h2>3. Register Allocation &amp; Memory Organization</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Register</th>
+          <th>High / Low</th>
+          <th>Assigned Role in <code>CAESAR.ASM</code></th>
+          <th>Operational Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>AX</code></td>
+          <td><code>AH</code> / <code>AL</code></td>
+          <td>Accumulator &amp; System Call Selector</td>
+          <td><code>AL</code> holds the active byte for <code>ADD</code>/<code>SUB</code> cipher shifts and <code>XLAT</code> hex translation; <code>AH</code> selects DOS <code>INT 21h</code> subfunctions (<code>0Ah</code>, <code>09h</code>, <code>02h</code>, <code>4Ch</code>).</td>
+        </tr>
+        <tr>
+          <td><code>BX</code></td>
+          <td><code>BH</code> / <code>BL</code></td>
+          <td>Trace Register Pair &amp; Base Pointer</td>
+          <td><code>BL</code> stores the input byte before shifting; <code>BH</code> stores the output byte after shifting for <code>PRINT_TRACE_ROW</code>; <code>BX</code> indexes string length termination.</td>
+        </tr>
+        <tr>
+          <td><code>CX</code></td>
+          <td><code>CH</code> / <code>CL</code></td>
+          <td>Hardware Loop Counter</td>
+          <td>Loaded with <code>ACTUAL_LEN</code> to control <code>LOOP ENCRYPT_LOOP</code> and <code>LOOP DECRYPT_LOOP</code>.</td>
+        </tr>
+        <tr>
+          <td><code>DX</code></td>
+          <td><code>DH</code> / <code>DL</code></td>
+          <td>I/O Pointer &amp; Character Output</td>
+          <td><code>DX</code> holds effective string addresses (<code>LEA DX, ...</code>); <code>DL</code> passes single ASCII bytes to <code>INT 21h / AH=02h</code>.</td>
+        </tr>
+        <tr>
+          <td><code>SI</code></td>
+          <td>16-Bit Index</td>
+          <td>Character Array Index (<code>0..N-1</code>)</td>
+          <td>Steps sequentially through <code>PLAINTEXT[SI]</code>, <code>ENCRYPTED_STR[SI]</code>, and <code>DECRYPTED_STR[SI]</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>4. Step-by-Step Register &amp; Hexadecimal Execution Walkthrough</h2>
+    <h3>4.1 Forward Encryption Trace (Input: <code>"HELLO"</code>, Shift: <code>+3</code>)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Index (<code>SI</code>)</th>
+          <th>Counter (<code>CX</code>)</th>
+          <th>Plain Char (<code>BL</code>)</th>
+          <th>Input ASCII (Hex / Dec)</th>
+          <th>ALU Instruction</th>
+          <th>Boundary Test (<code>CMP AL, 'Z'</code>)</th>
+          <th>Shifted ASCII (Hex / Dec)</th>
+          <th>Cipher Char (<code>BH</code>)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>0000h</code></td>
+          <td><code>0005h</code></td>
+          <td><strong>'H'</strong></td>
+          <td><code>48h</code> (72)</td>
+          <td><code>ADD AL, 3</code></td>
+          <td><code>4Bh &lt;= 5Ah</code> (No Wrap)</td>
+          <td><code>4Bh</code> (75)</td>
+          <td><strong>'K'</strong></td>
+        </tr>
+        <tr>
+          <td><code>0001h</code></td>
+          <td><code>0004h</code></td>
+          <td><strong>'E'</strong></td>
+          <td><code>45h</code> (69)</td>
+          <td><code>ADD AL, 3</code></td>
+          <td><code>48h &lt;= 5Ah</code> (No Wrap)</td>
+          <td><code>48h</code> (72)</td>
+          <td><strong>'H'</strong></td>
+        </tr>
+        <tr>
+          <td><code>0002h</code></td>
+          <td><code>0003h</code></td>
+          <td><strong>'L'</strong></td>
+          <td><code>4Ch</code> (76)</td>
+          <td><code>ADD AL, 3</code></td>
+          <td><code>4Fh &lt;= 5Ah</code> (No Wrap)</td>
+          <td><code>4Fh</code> (79)</td>
+          <td><strong>'O'</strong></td>
+        </tr>
+        <tr>
+          <td><code>0003h</code></td>
+          <td><code>0002h</code></td>
+          <td><strong>'L'</strong></td>
+          <td><code>4Ch</code> (76)</td>
+          <td><code>ADD AL, 3</code></td>
+          <td><code>4Fh &lt;= 5Ah</code> (No Wrap)</td>
+          <td><code>4Fh</code> (79)</td>
+          <td><strong>'O'</strong></td>
+        </tr>
+        <tr>
+          <td><code>0004h</code></td>
+          <td><code>0001h</code></td>
+          <td><strong>'O'</strong></td>
+          <td><code>4Fh</code> (79)</td>
+          <td><code>ADD AL, 3</code></td>
+          <td><code>52h &lt;= 5Ah</code> (No Wrap)</td>
+          <td><code>52h</code> (82)</td>
+          <td><strong>'R'</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>4.2 Reverse Decryption Trace (Ciphertext: <code>"KHOOR"</code>, Shift: <code>-3</code>)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Index (<code>SI</code>)</th>
+          <th>Counter (<code>CX</code>)</th>
+          <th>Cipher Char (<code>BL</code>)</th>
+          <th>Cipher ASCII (Hex / Dec)</th>
+          <th>ALU Instruction</th>
+          <th>Boundary Test (<code>CMP AL, 'A'</code>)</th>
+          <th>Restored ASCII (Hex / Dec)</th>
+          <th>Plain Char (<code>BH</code>)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>0000h</code></td>
+          <td><code>0005h</code></td>
+          <td><strong>'K'</strong></td>
+          <td><code>4Bh</code> (75)</td>
+          <td><code>SUB AL, 3</code></td>
+          <td><code>48h &gt;= 41h</code> (No Wrap)</td>
+          <td><code>48h</code> (72)</td>
+          <td><strong>'H'</strong></td>
+        </tr>
+        <tr>
+          <td><code>0001h</code></td>
+          <td><code>0004h</code></td>
+          <td><strong>'H'</strong></td>
+          <td><code>48h</code> (72)</td>
+          <td><code>SUB AL, 3</code></td>
+          <td><code>45h &gt;= 41h</code> (No Wrap)</td>
+          <td><code>45h</code> (69)</td>
+          <td><strong>'E'</strong></td>
+        </tr>
+        <tr>
+          <td><code>0002h</code></td>
+          <td><code>0003h</code></td>
+          <td><strong>'O'</strong></td>
+          <td><code>4Fh</code> (79)</td>
+          <td><code>SUB AL, 3</code></td>
+          <td><code>4Ch &gt;= 41h</code> (No Wrap)</td>
+          <td><code>4Ch</code> (76)</td>
+          <td><strong>'L'</strong></td>
+        </tr>
+        <tr>
+          <td><code>0003h</code></td>
+          <td><code>0002h</code></td>
+          <td><strong>'O'</strong></td>
+          <td><code>4Fh</code> (79)</td>
+          <td><code>SUB AL, 3</code></td>
+          <td><code>4Ch &gt;= 41h</code> (No Wrap)</td>
+          <td><code>4Ch</code> (76)</td>
+          <td><strong>'L'</strong></td>
+        </tr>
+        <tr>
+          <td><code>0004h</code></td>
+          <td><code>0001h</code></td>
+          <td><strong>'R'</strong></td>
+          <td><code>52h</code> (82)</td>
+          <td><code>SUB AL, 3</code></td>
+          <td><code>4Fh &gt;= 41h</code> (No Wrap)</td>
+          <td><code>4Fh</code> (79)</td>
+          <td><strong>'O'</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>5. Console Output Visualization</h2>
+    <pre><code>+==============================================================+
+|      8086 MASM SYSTEM LAB: CAESAR CIPHER SIMULATOR (+3)      |
++==============================================================+
+
+[INPUT] Enter Plaintext String (e.g., HELLO): HELLO
+
++--------------------------------------------------------------+
+| STEP 1: ENCRYPTION TRACE  [Formula: C = (P - Base + 3) % 26] |
++-------+-----------+-------------+---------------+------------+
+| Index | Plain Chr | Plain ASCII | Shifted ASCII | Cipher Chr |
++-------+-----------+-------------+---------------+------------+
+|   0   |     H     |     48h     |      4Bh      |     K      |
+|   1   |     E     |     45h     |      48h      |     H      |
+|   2   |     L     |     4Ch     |      4Fh      |     O      |
+|   3   |     L     |     4Ch     |      4Fh      |     O      |
+|   4   |     O     |     4Fh     |      52h      |     R      |
++-------+-----------+-------------+---------------+------------+
+
++--------------------------------------------------------------+
+| STEP 2: DECRYPTION TRACE  [Formula: P = (C - Base - 3) % 26] |
++-------+-----------+-------------+---------------+------------+
+| Index | Ciphr Chr | Ciphr ASCII | Restord ASCII | Plain Chr  |
++-------+-----------+-------------+---------------+------------+
+|   0   |     K     |     4Bh     |      48h      |     H      |
+|   1   |     H     |     48h     |      45h      |     E      |
+|   2   |     O     |     4Fh     |      4Ch      |     L      |
+|   3   |     O     |     4Fh     |      4Ch      |     L      |
+|   4   |     R     |     52h     |      4Fh      |     O      |
++-------+-----------+-------------+---------------+------------+
+
++==============================================================+
+|                    FINAL CIPHER SUMMARY                      |
++==============================================================+
+  a) Original Plaintext  : HELLO
+  b) Encrypted (+3 Shift): KHOOR
+  c) Decrypted Plaintext : HELLO
++==============================================================+</code></pre>
+
+    <h2>6. How to Assemble, Link, and Run</h2>
+    <pre><code>REM --- Inside DOSBox ---
+MOUNT C /Users/sayanadityadas/academics/labs/masm
+C:
+MASM CAESAR.ASM;
+LINK CAESAR.OBJ;
+CAESAR.EXE</code></pre>
+  </div>
+</body>
+</html>
